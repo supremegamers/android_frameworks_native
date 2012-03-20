@@ -2105,7 +2105,7 @@ void EventHub::openDeviceLocked(const std::string& devicePath) {
             device->classes |= (InputDeviceClass::TOUCH | InputDeviceClass::TOUCH_MT);
         }
         // Is this an old style single-touch driver?
-    } else if (device->keyBitmask.test(BTN_TOUCH) && device->absBitmask.test(ABS_X) &&
+    } else if ((device->keyBitmask.test(BTN_TOUCH) || device->keyBitmask.test(BTN_LEFT)) && device->absBitmask.test(ABS_X) &&
                device->absBitmask.test(ABS_Y)) {
         device->classes |= InputDeviceClass::TOUCH;
         // Is this a BT stylus?

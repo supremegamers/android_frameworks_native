@@ -26,7 +26,7 @@ TouchButtonAccumulator::TouchButtonAccumulator() : mHaveBtnTouch(false), mHaveSt
 }
 
 void TouchButtonAccumulator::configure(InputDeviceContext& deviceContext) {
-    mHaveBtnTouch = deviceContext.hasScanCode(BTN_TOUCH);
+    mHaveBtnTouch = deviceContext.hasScanCode(BTN_TOUCH) || deviceContext.hasScanCode(BTN_LEFT);
     mHaveStylus = deviceContext.hasScanCode(BTN_TOOL_PEN) ||
             deviceContext.hasScanCode(BTN_TOOL_RUBBER) ||
             deviceContext.hasScanCode(BTN_TOOL_BRUSH) ||
@@ -35,7 +35,7 @@ void TouchButtonAccumulator::configure(InputDeviceContext& deviceContext) {
 }
 
 void TouchButtonAccumulator::reset(InputDeviceContext& deviceContext) {
-    mBtnTouch = deviceContext.isKeyPressed(BTN_TOUCH);
+    mBtnTouch = deviceContext.isKeyPressed(BTN_TOUCH) || deviceContext.isKeyPressed(BTN_LEFT);
     mBtnStylus = deviceContext.isKeyPressed(BTN_STYLUS);
     // BTN_0 is what gets mapped for the HID usage Digitizers.SecondaryBarrelSwitch
     mBtnStylus2 = deviceContext.isKeyPressed(BTN_STYLUS2) || deviceContext.isKeyPressed(BTN_0);
@@ -73,6 +73,7 @@ void TouchButtonAccumulator::process(const RawEvent* rawEvent) {
     if (rawEvent->type == EV_KEY) {
         switch (rawEvent->code) {
             case BTN_TOUCH:
+            case BTN_LEFT:
                 mBtnTouch = rawEvent->value;
                 break;
             case BTN_STYLUS:

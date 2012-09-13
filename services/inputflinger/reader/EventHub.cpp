@@ -1215,8 +1215,17 @@ void EventHub::unregisterVideoDeviceFromEpollLocked(const TouchVideoDevice& vide
     }
 }
 
-status_t EventHub::openDeviceLocked(const char* devicePath) {
+status_t EventHub::openDeviceLocked(const char *devicePath) {
+    return openDeviceLocked(devicePath, false);
+}
+
+status_t EventHub::openDeviceLocked(const char *devicePath, bool ignoreAlreadyOpened) {
     char buffer[80];
+
+    if (ignoreAlreadyOpened && (getDeviceByPathLocked(devicePath) != 0)) {
+        ALOGV("Ignoring device '%s' that has already been opened.", devicePath);
+        return 0;
+    }
 
     ALOGV("Opening device: %s", devicePath);
 
@@ -1837,7 +1846,7 @@ status_t EventHub::readNotifyLocked() {
             if (event->wd == mInputWd) {
                 std::string filename = StringPrintf("%s/%s", DEVICE_PATH, event->name);
                 if (event->mask & IN_CREATE) {
-                    openDeviceLocked(filename.c_str());
+                    openDeviceLocked(filename.c_str(), true);
                 } else {
                     ALOGI("Removing device '%s' due to inotify event\n", filename.c_str());
                     closeDeviceByPathLocked(filename.c_str());

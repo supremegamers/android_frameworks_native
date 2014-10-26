@@ -1710,6 +1710,20 @@ sp<IDisplayEventConnection> SurfaceFlinger::createDisplayEventConnection(
     return mScheduler->createDisplayEventConnection(handle, eventRegistration);
 }
 
+#ifdef CONSOLE_MANAGER
+void SurfaceFlinger::screenReleased(const sp<IBinder>& display) {
+    // this may be called by a signal handler, we can't do too much in here
+    setPowerMode(display, static_cast<int>(hal::PowerMode::OFF));
+    signalLayerUpdate();
+}
+
+void SurfaceFlinger::screenAcquired(const sp<IBinder>& display) {
+    // this may be called by a signal handler, we can't do too much in here
+    setPowerMode(display, static_cast<int>(hal::PowerMode::ON));
+    signalLayerUpdate();
+}
+#endif
+
 void SurfaceFlinger::signalTransaction() {
     mScheduler->resetIdleTimer();
     mPowerAdvisor.notifyDisplayUpdateImminent();

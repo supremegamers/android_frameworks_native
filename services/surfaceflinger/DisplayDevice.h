@@ -58,6 +58,7 @@ class IGraphicBufferProducer;
 class Layer;
 class RefreshRateOverlay;
 class SurfaceFlinger;
+class ConsoleManagerThread;
 
 struct CompositionInfo;
 struct DisplayDeviceCreationArgs;
@@ -272,6 +273,10 @@ private:
     const DisplayModes mSupportedModes;
 
     std::atomic<nsecs_t> mLastHwVsync = 0;
+
+#ifdef CONSOLE_MANAGER
+    sp<ConsoleManagerThread> mConsoleManagerThread;
+#endif
 
     // TODO(b/74619554): Remove special cases for primary display.
     const bool mIsPrimary;

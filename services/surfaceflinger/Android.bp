@@ -48,6 +48,7 @@ cc_defaults {
         "libGLESv1_CM",
         "libGLESv2",
         "libgui",
+        "libhardware",
         "libhidlbase",
         "liblayers_proto",
         "liblog",
@@ -205,6 +206,8 @@ cc_library_shared {
     ],
     cflags: [
         "-DUSE_VR_COMPOSER=1",
+        "-DCONSOLE_MANAGER",
+        "-DANDROID_VT=7",
     ],
     // VrComposer is not used when building surfaceflinger for vendors
     target: {
@@ -215,6 +218,9 @@ cc_library_shared {
         },
     },
     logtags: ["EventLog/EventLogTags.logtags"],
+    include_dirs: [
+        "external/drm_gralloc",
+    ],
 }
 
 cc_defaults {

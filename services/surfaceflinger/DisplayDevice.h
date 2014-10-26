@@ -50,6 +50,7 @@ class HWComposer;
 class IGraphicBufferProducer;
 class Layer;
 class SurfaceFlinger;
+class ConsoleManagerThread;
 
 struct CompositionInfo;
 struct DisplayDeviceCreationArgs;
@@ -179,6 +180,10 @@ private:
     hardware::graphics::composer::hal::PowerMode mPowerMode =
             hardware::graphics::composer::hal::PowerMode::OFF;
     HwcConfigIndexType mActiveConfig;
+
+#ifdef CONSOLE_MANAGER
+    sp<ConsoleManagerThread> mConsoleManagerThread;
+#endif
 
     // TODO(b/74619554): Remove special cases for primary display.
     const bool mIsPrimary;

@@ -394,6 +394,19 @@ void TouchInputMapper::configure(nsecs_t when, const InputReaderConfiguration* c
         configureSurface(when, &resetNeeded);
     }
 
+    if (!changes || (changes & InputReaderConfiguration::CHANGE_DEVICE_ALIAS)) {
+        // Get 5-point calibration parameters
+        int *p = mCalibration.fiveCal;
+        p[6] = 0;
+        if (FILE *file = fopen("/data/misc/tscal/pointercal", "r")) {
+            if (fscanf(file, "%d %d %d %d %d %d %d", &p[0], &p[1], &p[2], &p[3], &p[4], &p[5], &p[6]) == 7) {
+                p[0] *= mXScale, p[1] *= mYScale, p[3] *= mXScale, p[4] *= mYScale;
+                ALOGD("pointercal loaded ok");
+            }
+            fclose(file);
+        }
+    }
+
     if (changes && resetNeeded) {
         // Send reset, unless this is the first time the device has been configured,
         // in which case the reader will call reset itself after all mappers are ready.
@@ -2283,13 +2296,29 @@ void TouchInputMapper::cookPointerData() {
         // TODO: Adjust coverage coords?
         float xTransformed = in.x, yTransformed = in.y;
         mAffineTransform.applyTo(xTransformed, yTransformed);
-        rotateAndScale(xTransformed, yTransformed);
+        //rotateAndScale(xTransformed, yTransformed);
 
         // Adjust X, Y, and coverage coords for surface orientation.
+        float x, y;
         float left, top, right, bottom;
+        float x_temp = float(xTransformed - mRawPointerAxes.x.minValue);
+        float y_temp = float(yTransformed - mRawPointerAxes.y.minValue);
+        float x_cal, y_cal;
+        int *pc = mCalibration.fiveCal;
+        if (pc[6]) {
+            // Apply 5-point calibration algorithm
+            x_cal = (x_temp * pc[0] + y_temp * pc[1] + pc[2] ) / pc[6];
+            y_cal = (x_temp * pc[3] + y_temp * pc[4] + pc[5] ) / pc[6];
+            ALOGV("5cal: x_temp=%f y_temp=%f x_cal=%f y_cal=%f", x_temp, y_temp, x_cal, y_cal);
+        } else {
+            x_cal = x_temp * mXScale;
+            y_cal = y_temp * mYScale;
+        }
 
         switch (mSurfaceOrientation) {
             case DISPLAY_ORIENTATION_90:
+                x = y_cal + mYTranslate;
+                y = mRawSurfaceWidth - x_cal + mXTranslate;
                 left = float(rawTop - mRawPointerAxes.y.minValue) * mYScale + mYTranslate;
                 right = float(rawBottom - mRawPointerAxes.y.minValue) * mYScale + mYTranslate;
                 bottom = float(mRawPointerAxes.x.maxValue - rawLeft) * mXScale + mXTranslate;
@@ -2302,6 +2331,8 @@ void TouchInputMapper::cookPointerData() {
                 }
                 break;
             case DISPLAY_ORIENTATION_180:
+                x = mRawSurfaceWidth - x_cal;
+                y = mRawSurfaceHeight - y_cal + mYTranslate;
                 left = float(mRawPointerAxes.x.maxValue - rawRight) * mXScale;
                 right = float(mRawPointerAxes.x.maxValue - rawLeft) * mXScale;
                 bottom = float(mRawPointerAxes.y.maxValue - rawTop) * mYScale + mYTranslate;
@@ -2314,6 +2345,8 @@ void TouchInputMapper::cookPointerData() {
                 }
                 break;
             case DISPLAY_ORIENTATION_270:
+                x = mRawSurfaceHeight - y_cal;
+                y = x_cal + mXTranslate;
                 left = float(mRawPointerAxes.y.maxValue - rawBottom) * mYScale;
                 right = float(mRawPointerAxes.y.maxValue - rawTop) * mYScale;
                 bottom = float(rawRight - mRawPointerAxes.x.minValue) * mXScale + mXTranslate;
@@ -2326,6 +2359,8 @@ void TouchInputMapper::cookPointerData() {
                 }
                 break;
             default:
+                x = x_cal + mXTranslate;
+                y = y_cal + mYTranslate;
                 left = float(rawLeft - mRawPointerAxes.x.minValue) * mXScale + mXTranslate;
                 right = float(rawRight - mRawPointerAxes.x.minValue) * mXScale + mXTranslate;
                 bottom = float(rawBottom - mRawPointerAxes.y.minValue) * mYScale + mYTranslate;
@@ -2336,8 +2371,8 @@ void TouchInputMapper::cookPointerData() {
         // Write output coords.
         PointerCoords& out = mCurrentCookedState.cookedPointerData.pointerCoords[i];
         out.clear();
-        out.setAxisValue(AMOTION_EVENT_AXIS_X, xTransformed);
-        out.setAxisValue(AMOTION_EVENT_AXIS_Y, yTransformed);
+        out.setAxisValue(AMOTION_EVENT_AXIS_X, x);
+        out.setAxisValue(AMOTION_EVENT_AXIS_Y, y);
         out.setAxisValue(AMOTION_EVENT_AXIS_PRESSURE, pressure);
         out.setAxisValue(AMOTION_EVENT_AXIS_SIZE, size);
         out.setAxisValue(AMOTION_EVENT_AXIS_TOUCH_MAJOR, touchMajor);

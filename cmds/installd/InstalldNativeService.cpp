@@ -333,7 +333,7 @@ static int restorecon_app_data_lazy(const std::string& path, const std::string& 
     }
     if (selinux_android_restorecon_pkgdir(path.c_str(), seInfo.c_str(), uid, 0) < 0) {
         PLOG(ERROR) << "Failed top-level restorecon for " << path;
-        goto fail;
+    //  goto fail;
     }
     if (lgetfilecon(path.c_str(), &after) < 0) {
         PLOG(ERROR) << "Failed after getfilecon for " << path;
@@ -557,7 +557,7 @@ binder::Status InstalldNativeService::migrateAppData(const std::unique_ptr<std::
     auto target = (flags & FLAG_STORAGE_DE) ? de_path : ce_path;
     auto source = (flags & FLAG_STORAGE_DE) ? ce_path : de_path;
 
-    if (getxattr(target.c_str(), kXattrDefault, nullptr, 0) == -1) {
+    if (getxattr(target.c_str(), kXattrDefault, nullptr, 0) == -1 && errno != ENODATA) {
         LOG(WARNING) << "Requested default storage " << target
                 << " is not active; migrating from " << source;
         if (delete_dir_contents_and_dir(target) != 0) {

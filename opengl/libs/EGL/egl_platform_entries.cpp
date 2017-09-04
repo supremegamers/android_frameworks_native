@@ -665,7 +665,10 @@ void getNativePixelFormat(EGLDisplay dpy, egl_connection_t* cnx, EGLConfig confi
         if (componentType == EGL_COLOR_COMPONENT_TYPE_FIXED_EXT) {
             if (colorDepth > 24) {
                 *format = HAL_PIXEL_FORMAT_RGBA_1010102;
+            } else if (cnx->egl.eglGetConfigAttrib(dpy, config, EGL_NATIVE_VISUAL_ID, &colorDepth)) {
+                *format = android_pixel_format(colorDepth);
             } else {
+                ALOGE("eglGetConfigAttrib(EGL_NATIVE_VISUAL_ID) failed: %#x", eglGetError());
                 *format = HAL_PIXEL_FORMAT_RGBA_8888;
             }
         } else {

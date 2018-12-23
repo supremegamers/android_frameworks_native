@@ -1357,6 +1357,12 @@ status_t EventHub::openDeviceLocked(const char *devicePath, bool ignoreAlreadyOp
     if (test_bit(BTN_MOUSE, device->keyBitmask) && test_bit(REL_X, device->relBitmask) &&
         test_bit(REL_Y, device->relBitmask)) {
         device->classes |= INPUT_DEVICE_CLASS_CURSOR;
+    // Is this an absolute x-y axis with relative wheel mouse device?
+    } else if (test_bit(BTN_MOUSE, device->keyBitmask)
+               && test_bit(ABS_X, device->absBitmask)
+               && test_bit(ABS_Y, device->absBitmask)
+               && test_bit(REL_WHEEL, device->relBitmask)) {
+        device->classes |= INPUT_DEVICE_CLASS_CURSOR;
     }
 
     // See if this is a rotary encoder type device.
@@ -1380,7 +1386,7 @@ status_t EventHub::openDeviceLocked(const char *devicePath, bool ignoreAlreadyOp
         }
         // Is this an old style single-touch driver?
     } else if ((test_bit(BTN_TOUCH, device->keyBitmask) || test_bit(BTN_LEFT, device->keyBitmask)) && test_bit(ABS_X, device->absBitmask) &&
-               test_bit(ABS_Y, device->absBitmask)) {
+               test_bit(ABS_Y, device->absBitmask) && !test_bit(REL_WHEEL, device->relBitmask)) {
         device->classes |= INPUT_DEVICE_CLASS_TOUCH;
         // Is this a BT stylus?
     } else if ((test_bit(ABS_PRESSURE, device->absBitmask) ||

@@ -576,7 +576,7 @@ void SurfaceFlinger::bootFinished()
         if (performanceRefreshRate && isDisplayConfigAllowed(performanceRefreshRate->configId)) {
             setRefreshRateTo(RefreshRateType::PERFORMANCE, Scheduler::ConfigEvent::None);
         } else {
-            setRefreshRateTo(RefreshRateType::DEFAULT, Scheduler::ConfigEvent::None);
+            setRefreshRateTo(RefreshRateType::DEFAULT, Scheduler::ConfigEvent::Changed);
         }
     }));
 }

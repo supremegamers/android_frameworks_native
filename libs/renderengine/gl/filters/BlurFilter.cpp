@@ -327,7 +327,7 @@ string BlurFilter::getDitherMixFragShader() const {
     return R"SHADER(#version 310 es
         precision mediump float;
 
-        in highp vec2 vUV;
+        in vec2 vUV;
         in vec2 vNoiseUV;
         out vec4 fragColor;
 

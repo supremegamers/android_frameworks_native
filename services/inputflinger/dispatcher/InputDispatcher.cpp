@@ -482,33 +482,6 @@ void InputDispatcher::dispatchOnce() {
 }
 
 /**
- * Raise ANR if there is no focused window.
- * Before the ANR is raised, do a final state check:
- * 1. The currently focused application must be the same one we are waiting for.
- * 2. Ensure we still don't have a focused window.
- */
-void InputDispatcher::processNoFocusedWindowAnrLocked() {
-    // Check if the application that we are waiting for is still focused.
-    sp<InputApplicationHandle> focusedApplication =
-            getValueByKey(mFocusedApplicationHandlesByDisplay, mAwaitedApplicationDisplayId);
-    if (focusedApplication == nullptr ||
-        focusedApplication->getApplicationToken() !=
-                mAwaitedFocusedApplication->getApplicationToken()) {
-        // Unexpected because we should have reset the ANR timer when focused application changed
-        ALOGE("Waited for a focused window, but focused application has already changed to %s",
-              focusedApplication->getName().c_str());
-        return; // The focused application has changed.
-    }
-
-    const sp<InputWindowHandle>& focusedWindowHandle =
-            getFocusedWindowHandleLocked(mAwaitedApplicationDisplayId);
-    if (focusedWindowHandle != nullptr) {
-        return; // We now have a focused window. No need for ANR.
-    }
-    onAnrLocked(mAwaitedFocusedApplication);
-}
-
-/**
  * Check if any of the connections' wait queues have events that are too old.
  * If we waited for events to be ack'ed for more than the window timeout, raise an ANR.
  * Return the time at which we should wake up next.
@@ -519,9 +492,8 @@ nsecs_t InputDispatcher::processAnrsLocked() {
     // Check if we are waiting for a focused window to appear. Raise ANR if waited too long
     if (mNoFocusedWindowTimeoutTime.has_value() && mAwaitedFocusedApplication != nullptr) {
         if (currentTime >= *mNoFocusedWindowTimeoutTime) {
-            processNoFocusedWindowAnrLocked();
+            onAnrLocked(mAwaitedFocusedApplication);
             mAwaitedFocusedApplication.clear();
-            mNoFocusedWindowTimeoutTime = std::nullopt;
             return LONG_LONG_MIN;
         } else {
             // Keep waiting
@@ -1189,13 +1161,6 @@ bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, KeyEntry* entry,
     // Give the policy a chance to intercept the key.
     if (entry->interceptKeyResult == KeyEntry::INTERCEPT_KEY_RESULT_UNKNOWN) {
         if (entry->policyFlags & POLICY_FLAG_PASS_TO_USER) {
-            // Key from FOD
-            if(entry->keyCode == 0 && entry->scanCode == 338){
-                entry->interceptKeyResult = KeyEntry::INTERCEPT_KEY_RESULT_SKIP;
-                *dropReason = DropReason::POLICY;
-                ALOGI("Key from FOD");
-                return true;
-            }
             std::unique_ptr<CommandEntry> commandEntry = std::make_unique<CommandEntry>(
                     &InputDispatcher::doInterceptKeyBeforeDispatchingLockedInterruptible);
             sp<InputWindowHandle> focusedWindowHandle =
@@ -1512,7 +1477,6 @@ int32_t InputDispatcher::findFocusedWindowTargetsLocked(nsecs_t currentTime,
                     DEFAULT_INPUT_DISPATCHING_TIMEOUT.count());
             mNoFocusedWindowTimeoutTime = currentTime + timeout;
             mAwaitedFocusedApplication = focusedApplicationHandle;
-            mAwaitedApplicationDisplayId = displayId;
             ALOGW("Waiting because no window has focus but %s may eventually add a "
                   "window when it finishes starting up. Will wait for %" PRId64 "ms",
                   mAwaitedFocusedApplication->getName().c_str(), ns2ms(timeout));
@@ -3606,10 +3570,6 @@ void InputDispatcher::decrementPendingForegroundDispatches(EventEntry* entry) {
 std::vector<sp<InputWindowHandle>> InputDispatcher::getWindowHandlesLocked(
         int32_t displayId) const {
     return getValueByKey(mWindowHandlesByDisplay, displayId);
-}
-
-sp<InputWindowHandle> InputDispatcher::getFocusedWindowHandleLocked(int displayId) const {
-    return getValueByKey(mFocusedWindowHandlesByDisplay, displayId);
 }
 
 sp<InputWindowHandle> InputDispatcher::getWindowHandleLocked(

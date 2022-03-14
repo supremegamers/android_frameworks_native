@@ -83,8 +83,8 @@ void GraphicBufferMapper::dumpBufferToSystemLog(buffer_handle_t bufferHandle, bo
 }
 
 status_t GraphicBufferMapper::importBuffer(buffer_handle_t rawHandle,
-        uint32_t width, uint32_t height, uint32_t layerCount,
-        PixelFormat format, uint64_t usage, uint32_t stride,
+        __attribute__ ((unused)) uint32_t width, __attribute__ ((unused)) uint32_t height, __attribute__ ((unused)) uint32_t layerCount,
+        __attribute__ ((unused)) PixelFormat format, __attribute__ ((unused)) uint64_t usage, __attribute__ ((unused)) uint32_t stride,
         buffer_handle_t* outHandle)
 {
     ATRACE_CALL();
@@ -96,13 +96,13 @@ status_t GraphicBufferMapper::importBuffer(buffer_handle_t rawHandle,
         return error;
     }
 
-    error = mMapper->validateBufferSize(bufferHandle, width, height, format, layerCount, usage,
+    /*error = mMapper->validateBufferSize(bufferHandle, width, height, format, layerCount, usage,
                                         stride);
     if (error != NO_ERROR) {
         ALOGE("validateBufferSize(%p) failed: %d", rawHandle, error);
         freeBuffer(bufferHandle);
         return static_cast<status_t>(error);
-    }
+    }*/
 
     *outHandle = bufferHandle;
 

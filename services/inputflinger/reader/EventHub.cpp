@@ -53,6 +53,10 @@
 #include <filesystem>
 #include <regex>
 
+#ifdef CONSOLE_MANAGER
+#include <linux/vt.h>
+#endif
+
 #include "EventHub.h"
 
 #define INDENT "  "
@@ -1617,6 +1621,14 @@ size_t EventHub::getEvents(int timeoutMillis, RawEvent* buffer, size_t bufferSiz
             }
         }
 
+#ifdef CONSOLE_MANAGER
+        struct vt_stat vs;
+        int fd_vt = open("/dev/tty0", O_RDWR | O_SYNC);
+        if (fd_vt >= 0) {
+            ioctl(fd_vt, VT_GETSTATE, &vs);
+            close(fd_vt);
+        }
+#endif
         // Grab the next input event.
         bool deviceChanged = false;
         while (mPendingEventIndex < mPendingEventCount) {
@@ -1691,6 +1703,12 @@ size_t EventHub::getEvents(int timeoutMillis, RawEvent* buffer, size_t bufferSiz
                 } else if ((readSize % sizeof(struct input_event)) != 0) {
                     ALOGE("could not get event (wrong size: %d)", readSize);
                 } else {
+#ifdef CONSOLE_MANAGER
+                    if (vs.v_active != ANDROID_VT) {
+                        ALOGV("Skip a non Android VT event");
+                        continue;
+                    }
+#endif
                     int32_t deviceId = device->id == mBuiltInKeyboardId ? 0 : device->id;
 
                     size_t count = size_t(readSize) / sizeof(struct input_event);

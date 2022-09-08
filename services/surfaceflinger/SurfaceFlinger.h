@@ -332,6 +332,9 @@ public:
     // won't accidentally hold onto the last strong reference.
     wp<Layer> fromHandle(const sp<IBinder>& handle) const;
 
+    void screenReleased(const sp<IBinder>& display);
+    void screenAcquired(const sp<IBinder>& display);
+
     // If set, disables reusing client composition buffers. This can be set by
     // debug.sf.disable_client_composition_cache
     bool mDisableClientCompositionCache = false;

@@ -59,6 +59,7 @@ cc_defaults {
         "libGLESv1_CM",
         "libGLESv2",
         "libgui",
+        "libhardware",
         "libhidlbase",
         "liblayers_proto",
         "liblog",
@@ -213,6 +214,8 @@ cc_defaults {
     ],
     cflags: [
         "-DLOG_TAG=\"SurfaceFlinger\"",
+        "-DCONSOLE_MANAGER",
+        "-DANDROID_VT=7",
     ],
     shared_libs: [
         "android.frameworks.displayservice@1.0",

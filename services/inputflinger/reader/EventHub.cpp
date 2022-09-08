@@ -56,6 +56,10 @@
 #include <regex>
 #include <utility>
 
+#ifdef CONSOLE_MANAGER
+#include <linux/vt.h>
+#endif
+
 #include "EventHub.h"
 
 #include "KeyCodeClassifications.h"
@@ -1911,6 +1915,14 @@ std::vector<RawEvent> EventHub::getEvents(int timeoutMillis) {
             }
         }
 
+#ifdef CONSOLE_MANAGER
+        struct vt_stat vs;
+        int fd_vt = open("/dev/tty0", O_RDWR | O_SYNC);
+        if (fd_vt >= 0) {
+            ioctl(fd_vt, VT_GETSTATE, &vs);
+            close(fd_vt);
+        }
+#endif
         // Grab the next input event.
         bool deviceChanged = false;
         while (mPendingEventIndex < mPendingEventCount) {
@@ -1986,6 +1998,12 @@ std::vector<RawEvent> EventHub::getEvents(int timeoutMillis) {
                 } else if ((readSize % sizeof(struct input_event)) != 0) {
                     ALOGE("could not get event (wrong size: %d)", readSize);
                 } else {
+#ifdef CONSOLE_MANAGER
+                    if (vs.v_active != ANDROID_VT) {
+                        ALOGV("Skip a non Android VT event");
+                        continue;
+                    }
+#endif
                     const int32_t deviceId = device->id == mBuiltInKeyboardId ? 0 : device->id;
 
                     const size_t count = size_t(readSize) / sizeof(struct input_event);

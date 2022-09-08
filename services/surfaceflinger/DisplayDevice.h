@@ -61,6 +61,7 @@ class IGraphicBufferProducer;
 class Layer;
 class RefreshRateOverlay;
 class SurfaceFlinger;
+class ConsoleManagerThread;
 
 struct CompositionInfo;
 struct DisplayDeviceCreationArgs;
@@ -276,6 +277,10 @@ private:
 
     std::optional<float> mStagedBrightness;
     std::optional<float> mBrightness;
+
+#ifdef CONSOLE_MANAGER
+    sp<ConsoleManagerThread> mConsoleManagerThread;
+#endif
 
     // TODO(b/182939859): Remove special cases for primary display.
     const bool mIsPrimary;

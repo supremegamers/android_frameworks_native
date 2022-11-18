@@ -26,6 +26,7 @@
 #include <grallocusage/GrallocUsageConversion.h>
 
 #include <android-base/stringprintf.h>
+#include <cutils/properties.h>
 #include <log/log.h>
 #include <utils/Singleton.h>
 #include <utils/Trace.h>
@@ -48,6 +49,27 @@ KeyedVector<buffer_handle_t,
     GraphicBufferAllocator::alloc_rec_t> GraphicBufferAllocator::sAllocList;
 
 GraphicBufferAllocator::GraphicBufferAllocator() : mMapper(GraphicBufferMapper::getInstance()) {
+    char default_gralloc[PROPERTY_VALUE_MAX]; 
+    property_get("debug.ui.default_mapper", default_gralloc, "");
+    if (atoi(default_gralloc) == 4) {
+    mAllocator = std::make_unique<const Gralloc4Allocator>(
+            reinterpret_cast<const Gralloc4Mapper&>(mMapper.getGrallocMapper()));
+    if (mAllocator->isLoaded()) {
+        return;
+    }
+    } else if (atoi(default_gralloc) == 3) {
+    mAllocator = std::make_unique<const Gralloc3Allocator>(
+            reinterpret_cast<const Gralloc3Mapper&>(mMapper.getGrallocMapper()));
+    if (mAllocator->isLoaded()) {
+        return;
+    }
+    } else if (atoi(default_gralloc) == 2) {
+    mAllocator = std::make_unique<const Gralloc2Allocator>(
+            reinterpret_cast<const Gralloc2Mapper&>(mMapper.getGrallocMapper()));
+    if (mAllocator->isLoaded()) {
+        return;
+    }
+    } else {
     mAllocator = std::make_unique<const Gralloc4Allocator>(
             reinterpret_cast<const Gralloc4Mapper&>(mMapper.getGrallocMapper()));
     if (mAllocator->isLoaded()) {
@@ -63,6 +85,7 @@ GraphicBufferAllocator::GraphicBufferAllocator() : mMapper(GraphicBufferMapper::
     if (mAllocator->isLoaded()) {
         return;
     }
+    } //debug.ui.default_gralloc
 
     LOG_ALWAYS_FATAL("gralloc-allocator is missing");
 }

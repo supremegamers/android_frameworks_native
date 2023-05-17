@@ -52,29 +52,15 @@ void CursorMotionAccumulator::process(const RawEvent* rawEvent) {
         switch (rawEvent->code) {
             case REL_X:
                 mRelX = rawEvent->value;
-                mMoved = true;
                 break;
             case REL_Y:
                 mRelY = rawEvent->value;
-                mMoved = true;
-                break;
-        }
-    } else if (rawEvent->type == EV_ABS) {
-        switch (rawEvent->code) {
-            case ABS_X:
-                mAbsX = rawEvent->value;
-                mMoved = true;
-                break;
-            case ABS_Y:
-                mAbsY = rawEvent->value;
-                mMoved = true;
                 break;
         }
     }
 }
 
 void CursorMotionAccumulator::finishSync() {
-    mMoved = false;
     clearRelativeAxes();
 }
 
@@ -155,10 +141,6 @@ void CursorInputMapper::configure(nsecs_t when, const InputReaderConfiguration* 
                 [[fallthrough]];
             case Parameters::Mode::POINTER:
                 mSource = AINPUT_SOURCE_MOUSE;
-                if (mParameters.hasAbsAxis) {
-                    getAbsoluteAxisInfo(ABS_X, &mRawAbsXInfo);
-                    getAbsoluteAxisInfo(ABS_Y, &mRawAbsYInfo);
-                }
                 mXPrecision = 1.0f;
                 mYPrecision = 1.0f;
                 mXScale = 1.0f;
@@ -253,16 +235,6 @@ void CursorInputMapper::configure(nsecs_t when, const InputReaderConfiguration* 
             }
         }
 
-        if (mDisplayId && mParameters.hasAbsAxis) {
-            auto viewport = config->getDisplayViewportById(*mDisplayId);
-            if (viewport) {
-                mXScale = float(viewport->logicalRight - viewport->logicalLeft)/(mRawAbsXInfo.maxValue - mRawAbsXInfo.minValue + 1);
-                mYScale = float(viewport->logicalBottom - viewport->logicalTop)/(mRawAbsYInfo.maxValue - mRawAbsYInfo.minValue + 1);
-                mXPrecision = 1.0f / mXScale;
-                mYPrecision = 1.0f / mYScale;
-             }
-        }
-
         bumpGeneration();
     }
 }
@@ -287,11 +259,6 @@ void CursorInputMapper::configureParameters() {
     if (mParameters.mode == Parameters::Mode::POINTER || mParameters.orientationAware) {
         mParameters.hasAssociatedDisplay = true;
     }
-
-    mParameters.hasAbsAxis = false;
-    if (mParameters.mode == Parameters::Mode::POINTER) {
-        mParameters.hasAbsAxis = getDeviceContext().hasAbsoluteAxis(ABS_X) && getDeviceContext().hasAbsoluteAxis(ABS_Y) ? true : false;
-    }
 }
 
 void CursorInputMapper::dumpParameters(std::string& dump) {
@@ -300,7 +267,6 @@ void CursorInputMapper::dumpParameters(std::string& dump) {
                          toString(mParameters.hasAssociatedDisplay));
     dump += StringPrintf(INDENT4 "Mode: %s\n", ftl::enum_string(mParameters.mode).c_str());
     dump += StringPrintf(INDENT4 "OrientationAware: %s\n", toString(mParameters.orientationAware));
-    dump += StringPrintf(INDENT4 "Absolute Axis: %s\n", toString(mParameters.hasAbsAxis));
 }
 
 void CursorInputMapper::reset(nsecs_t when) {
@@ -325,28 +291,6 @@ void CursorInputMapper::process(const RawEvent* rawEvent) {
 
     if (rawEvent->type == EV_SYN && rawEvent->code == SYN_REPORT) {
         sync(rawEvent->when, rawEvent->readTime);
-    }
-}
-
-void CursorInputMapper::rotateAbsolute(float* absX, float* absY) {
-    float temp;
-    switch (mOrientation) {
-    case DISPLAY_ORIENTATION_90:
-        temp = *absX;
-        *absX = *absY;
-        *absY = ((mRawAbsXInfo.maxValue - mRawAbsXInfo.minValue) + 1) - temp;
-        break;
-
-    case DISPLAY_ORIENTATION_180:
-        *absX = ((mRawAbsXInfo.maxValue - mRawAbsXInfo.minValue) + 1) - *absX;
-        *absY = ((mRawAbsYInfo.maxValue - mRawAbsYInfo.minValue) + 1) - *absY;
-        break;
-
-    case DISPLAY_ORIENTATION_270:
-        temp = *absX;
-        *absX = ((mRawAbsYInfo.maxValue - mRawAbsYInfo.minValue) + 1) - *absY;
-        *absY = temp;
-        break;
     }
 }
 
@@ -376,7 +320,14 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
     int32_t buttonsPressed = currentButtonState & ~lastButtonState;
     int32_t buttonsReleased = lastButtonState & ~currentButtonState;
 
-    bool moved = false;
+    float deltaX = mCursorMotionAccumulator.getRelativeX() * mXScale;
+    float deltaY = mCursorMotionAccumulator.getRelativeY() * mYScale;
+    bool moved = deltaX != 0 || deltaY != 0;
+
+    // Rotate delta according to orientation.
+    rotateDelta(mOrientation, &deltaX, &deltaY);
+
+    // Move the pointer.
     PointerProperties pointerProperties;
     pointerProperties.clear();
     pointerProperties.id = 0;
@@ -385,44 +336,6 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
     PointerCoords pointerCoords;
     pointerCoords.clear();
 
-    if (!mParameters.hasAbsAxis) {
-        float deltaX = mCursorMotionAccumulator.getRelativeX() * mXScale;
-        float deltaY = mCursorMotionAccumulator.getRelativeY() * mYScale;
-        moved = deltaX != 0 || deltaY != 0;
-
-        // Rotate delta according to orientation if needed.
-        rotateDelta(mOrientation, &deltaX, &deltaY);
-        mPointerVelocityControl.move(when, &deltaX, &deltaY);
-        if (mPointerController != NULL) {
-            if (moved) {
-                mPointerController->move(deltaX, deltaY);
-            }
-            float x, y;
-            mPointerController->getPosition(&x, &y);
-            pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, x);
-            pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, y);
-            pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
-            pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
-        } else {
-            pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, deltaX);
-            pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, deltaY);
-        }
-    } else {
-        float absX = mCursorMotionAccumulator.getAbsoluteX() - mRawAbsXInfo.minValue;
-        float absY = mCursorMotionAccumulator.getAbsoluteY() - mRawAbsYInfo.minValue;
-        if (mParameters.orientationAware) {
-            rotateAbsolute(&absX, &absY);
-        }
-        absX = absX * mXScale;
-        absY = absY * mYScale;
-        moved = mCursorMotionAccumulator.hasMoved();
-        if (moved) {
-            mPointerController->setPosition(absX, absY);
-        }
-        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, absX);
-        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, absY);
-    }
-
     float vscroll = mCursorScrollAccumulator.getRelativeVWheel();
     float hscroll = mCursorScrollAccumulator.getRelativeHWheel();
     bool scrolled = vscroll != 0 || hscroll != 0;
@@ -430,11 +343,17 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
     mWheelYVelocityControl.move(when, nullptr, &vscroll);
     mWheelXVelocityControl.move(when, &hscroll, nullptr);
 
+    mPointerVelocityControl.move(when, &deltaX, &deltaY);
+
     float xCursorPosition = AMOTION_EVENT_INVALID_CURSOR_POSITION;
     float yCursorPosition = AMOTION_EVENT_INVALID_CURSOR_POSITION;
     if (mSource == AINPUT_SOURCE_MOUSE) {
         if (moved || scrolled || buttonsChanged) {
             mPointerController->setPresentation(PointerControllerInterface::Presentation::POINTER);
+
+            if (moved) {
+                mPointerController->move(deltaX, deltaY);
+            }
 
             if (buttonsChanged) {
                 mPointerController->setButtonState(currentButtonState);
@@ -444,6 +363,17 @@ void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
         }
 
         mPointerController->getPosition(&xCursorPosition, &yCursorPosition);
+
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, xCursorPosition);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, yCursorPosition);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
+    } else {
+        // Pointer capture and navigation modes
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, deltaX);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, deltaY);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_X, deltaX);
+        pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_RELATIVE_Y, deltaY);
     }
 
     pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_PRESSURE, down ? 1.0f : 0.0f);

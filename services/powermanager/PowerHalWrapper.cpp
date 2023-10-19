@@ -80,6 +80,35 @@ HalResult<void> HalResult<void>::fromReturn(hardware::Return<R>& ret) {
 }
 // -------------------------------------------------------------------------------------------------
 
+HalResult<bool> EmptyHalWrapper::isPowerExtAvailable() {
+    ALOGV("Skipped isPowerExtAvailable because Power HAL not available");
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<bool> EmptyHalWrapper::isExtModeSupported(const ::std::string& mode) {
+    ALOGV("Skipped isExtModeSupported with %s because Power HAL not available",
+          mode.c_str());
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<bool> EmptyHalWrapper::isExtBoostSupported(const ::std::string& boost) {
+    ALOGV("Skipped isExtBoostSupported with %s because Power HAL not available",
+          boost.c_str());
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<void> EmptyHalWrapper::setExtMode(const ::std::string& mode, bool enabled) {
+    ALOGV("Skipped setExtMode %s to %s because Power HAL not available", mode.c_str(),
+          enabled ? "true" : "false");
+    return HalResult<void>::unsupported();
+};
+
+HalResult<void> EmptyHalWrapper::setExtBoost(const ::std::string& boost, int32_t durationMs) {
+    ALOGV("Skipped setExtBoost %s with duration %dms because Power HAL not available",
+          boost.c_str(), durationMs);
+    return HalResult<void>::unsupported();
+};
+
 HalResult<void> EmptyHalWrapper::setBoost(Boost boost, int32_t durationMs) {
     ALOGV("Skipped setBoost %s with duration %dms because Power HAL not available",
           toString(boost).c_str(), durationMs);
@@ -105,6 +134,34 @@ HalResult<int64_t> EmptyHalWrapper::getHintSessionPreferredRate() {
 }
 
 // -------------------------------------------------------------------------------------------------
+
+HalResult<bool> HidlHalWrapperV1_0::isPowerExtAvailable() {
+    ALOGV("Skipped isPowerExtAvailable because Power HAL AIDL not available");
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<bool> HidlHalWrapperV1_0::isExtModeSupported(const ::std::string& mode) {
+    ALOGV("Skipped isExtModeSupported with %s because Power HAL not available",
+          mode.c_str());
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<bool> HidlHalWrapperV1_0::isExtBoostSupported(const ::std::string& boost) {
+    ALOGV("Skipped isExtBoostSupported with %s because Power HAL not available",
+          boost.c_str());
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<void> HidlHalWrapperV1_0::setExtMode(const ::std::string& mode, bool enabled) {
+    ALOGV("Skipped setExtMode %s to %s because Power HAL AIDL not available", mode.c_str(),
+          enabled ? "true" : "false");
+    return HalResult<void>::unsupported();
+}
+
+HalResult<void> HidlHalWrapperV1_0::setExtBoost(const ::std::string& boost, int32_t durationMs) {
+    ALOGV("Skipped setExtBoost %s duration %dms because Power HAL AIDL not available", boost.c_str(), durationMs);
+    return HalResult<void>::unsupported();
+}
 
 HalResult<void> HidlHalWrapperV1_0::setBoost(Boost boost, int32_t durationMs) {
     if (boost == Boost::INTERACTION) {
@@ -172,6 +229,50 @@ HalResult<void> HidlHalWrapperV1_1::sendPowerHint(V1_0::PowerHint hintId, uint32
 }
 
 // -------------------------------------------------------------------------------------------------
+
+HalResult<bool> AidlHalWrapper::isPowerExtAvailable() {
+    if (mHandleExt) {
+        return HalResult<bool>::ok(true);
+    }
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<bool> AidlHalWrapper::isExtModeSupported(const ::std::string& mode) {
+    if (mHandleExt) {
+        bool supported = false;
+        auto result = mHandleExt->isModeSupported(mode, &supported);
+        return HalResult<bool>::fromStatus(result, supported);
+    }
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<bool> AidlHalWrapper::isExtBoostSupported(const ::std::string& boost) {
+    if (mHandleExt) {
+        bool supported = false;
+        auto result = mHandleExt->isBoostSupported(boost, &supported);
+        return HalResult<bool>::fromStatus(result, supported);
+    }
+    return HalResult<bool>::unsupported();
+};
+
+HalResult<void> AidlHalWrapper::setExtMode(const ::std::string& mode, bool enabled) {
+    std::unique_lock<std::mutex> lock(mModeMutex);
+    if (mHandleExt) {
+        return toHalResult(mHandleExt->setMode(mode, enabled));
+    }
+    ALOGV("Skipped setExtMode %s to %d because Power HAL AIDL not available", mode.c_str(), enabled);
+    return HalResult<void>::unsupported();
+}
+
+HalResult<void> AidlHalWrapper::setExtBoost(const ::std::string& boost, int32_t durationMs) {
+    std::unique_lock<std::mutex> lock(mBoostMutex);
+    if (mHandleExt) {
+        return toHalResult(mHandleExt->setBoost(boost, durationMs));
+    }
+    ALOGV("Skipped setExtBoost %s duration %dms because Power HAL AIDL not available",
+          boost.c_str(), durationMs);
+    return HalResult<void>::unsupported();
+}
 
 HalResult<void> AidlHalWrapper::setBoost(Boost boost, int32_t durationMs) {
     std::unique_lock<std::mutex> lock(mBoostMutex);

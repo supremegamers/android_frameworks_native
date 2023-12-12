@@ -1632,7 +1632,7 @@ size_t EventHub::getEvents(int timeoutMillis, RawEvent* buffer, size_t bufferSiz
 
 #ifdef CONSOLE_MANAGER
         struct vt_stat vs;
-        int fd_vt = open("/dev/tty0", O_RDWR | O_SYNC);
+        int fd_vt = open("/dev/tty0", O_RDWR | O_SYNC | O_CLOEXEC);
         if (fd_vt >= 0) {
             ioctl(fd_vt, VT_GETSTATE, &vs);
             close(fd_vt);
